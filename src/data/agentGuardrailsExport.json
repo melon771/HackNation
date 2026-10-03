@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "name": "AccountsPayable_SabineGuardrails_v1",
+  "version": "1.0.0",
+  "extractedFrom": "Sabine Weimann (Senior AP Lead, 24 years)",
+  "company": "Stuttgart Machine Works GmbH",
+  "effectiveDate": "2026-10-03",
+  "guardrails": [
+    {
+      "id": "GR-001-CAPEX-THRESHOLD",
+      "type": "hard_stop_validation",
+      "priority": "CRITICAL",
+      "rule": "IF item_type == 'machinery_or_equipment' AND amount >= 5000.00 THEN cost_center MUST BE '0400_CAPEX'",
+      "disallowedAction": "booking_to_opex_4711",
+      "remediation": "Change cost_center to '0400' and request asset number from plant engineering.",
+      "expertRationale": "Equipment over €5,000 is always Capex. Booking to 4711 ruins tax depreciation and triggers audit penalty."
+    },
+    {
+      "id": "GR-002-ASSET-TAG-REQUIREMENT",
+      "type": "field_dependency",
+      "priority": "BLOCKING",
+      "rule": "IF cost_center == '0400_CAPEX' THEN asset_number CANNOT BE null OR empty",
+      "disallowedAction": "commit_transaction_without_asset_tag",
+      "remediation": "Fetch registered asset tag from ERP Plant Maintenance table AST-*",
+      "expertRationale": "No asset number, no capex booking. Period."
+    },
+    {
+      "id": "GR-003-DECEMBER-VENDOR-FREEZE",
+      "type": "temporal_vendor_anomaly",
+      "priority": "HIGH",
+      "rule": "IF vendor_name == 'Bauer Logistik GmbH' AND invoice_month == 12 THEN payment_status MUST BE 'FROZEN_HOLD'",
+      "disallowedAction": "auto_payment_schedule",
+      "remediation": "Do not release until Logistics Team Lead attaches signed paper delivery note.",
+      "expertRationale": "Bauer double-bills every December without fail due to billing software year-end glitches."
+    },
+    {
+      "id": "GR-004-CROSS-BORDER-CO-SIGNATURE",
+      "type": "jurisdiction_routing",
+      "priority": "HIGH",
+      "rule": "IF vendor_country != 'DE' AND is_subsidiary == true AND amount > 3000.00 THEN approval_tier MUST BE 'TIER_2_PLANT_DIRECTOR'",
+      "disallowedAction": "single_clerk_approval",
+      "remediation": "Dispatch invoice to Brno subsidiary transfer pricing queue.",
+      "expertRationale": "Czech subsidiary invoices require dual signoff for tax compliance."
+    }
+  ],
+  "agentExecutionHooks": {
+    "preValidationHook": "validate_capex_threshold_and_hold_state",
+    "onViolationAction": "PAUSE_AGENT_AND_NOTIFY_HUMAN_SUPERVISOR",
+    "allowAutoOverride": false
+  }
+}
